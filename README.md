@@ -62,18 +62,21 @@ graph TB
    - 로컬 서비스 설정 관리
 
 ## 디렉터리 구조
+
+```
 .
 ├── cmd/
-│ ├── webhook/ # LB 클러스터의 Webhook 서버
-│ └── agent/ # 컨슈머 클러스터의 에이전트
+│   ├── webhook/    # LB 클러스터의 Webhook 서버
+│   └── agent/      # 컨슈머 클러스터의 에이전트
 ├── pkg/
-│ ├── api/ # Webhook 요청/응답 구조체
-│ ├── webhook/ # Webhook 서버 로직
-│ ├── agent/ # 에이전트 로직
-│ └── cilium/ # Cilium 유틸리티
-└── deploy/ # Kubernetes 매니페스트
-├── kube-lb-cluster/
-└── lb-consumer-cluster/
+│   ├── api/        # Webhook 요청/응답 구조체
+│   ├── webhook/    # Webhook 서버 로직
+│   ├── agent/      # 에이전트 로직
+│   └── cilium/     # Cilium 유틸리티
+└── deploy/         # Kubernetes 매니페스트
+    ├── kube-lb-cluster/
+    └── lb-consumer-cluster/
+```
 
 ## 설치 및 설정
 
