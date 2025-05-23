@@ -1,0 +1,19 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kube-lb-ingress
+  namespace: kube-lb-services
+spec:
+  ingressClassName: cilium
+  rules:
+  - host: "lb-webhook.basphere.local"
+    http:
+      paths:
+      - path: /vip
+        pathType: Prefix
+        backend:
+          service:
+            name: lb-webhook
+            port:
+              number: 80
