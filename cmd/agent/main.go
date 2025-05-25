@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -123,8 +124,47 @@ func (c *Controller) processService(svc *corev1.Service) {
 	log.Printf("Updated service %s/%s with VIP %s", svc.Namespace, svc.Name, webhookResp.VIP)
 }
 
-func getNodeIPs(clientset *kubernetes.Clientset) []string {
+func labelWorkerNodes(clientset *kubernetes.Clientset) error {
 	nodes, err := clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to list nodes: %v", err)
+	}
+
+	for _, node := range nodes.Items {
+		// 컨트롤 플레인 노드인지 확인
+		isControlPlane := false
+		for _, label := range []string{
+			"node-role.kubernetes.io/control-plane",
+			"node-role.kubernetes.io/master",
+		} {
+			if _, exists := node.Labels[label]; exists {
+				isControlPlane = true
+				break
+			}
+		}
+
+		// 컨트롤 플레인 노드가 아닌 경우에만 워커 노드 라벨 추가
+		if !isControlPlane {
+			nodeCopy := node.DeepCopy()
+			if nodeCopy.Labels == nil {
+				nodeCopy.Labels = make(map[string]string)
+			}
+			nodeCopy.Labels["kube-lb.io/worker-node"] = ""
+
+			_, err := clientset.CoreV1().Nodes().Update(context.TODO(), nodeCopy, metav1.UpdateOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to label node %s: %v", node.Name, err)
+			}
+			log.Printf("Labeled node %s as worker node", node.Name)
+		}
+	}
+	return nil
+}
+
+func getNodeIPs(clientset *kubernetes.Clientset) []string {
+	nodes, err := clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{
+		LabelSelector: "kube-lb.io/worker-node",
+	})
 	if err != nil {
 		log.Printf("Failed to list nodes: %v", err)
 		return nil
@@ -160,6 +200,11 @@ func main() {
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		log.Fatalf("Failed to create clientset: %v", err)
+	}
+
+	// 노드 라벨링 수행
+	if err := labelWorkerNodes(clientset); err != nil {
+		log.Fatalf("Failed to label worker nodes: %v", err)
 	}
 
 	controller := NewController(clientset, *clusterID, *webhookURL)
